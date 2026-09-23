@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "mlx-fused-rmsnorm"
 version = "0.1.0"
 description = "Fused residual addition and RMSNorm for MLX"
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = ["mlx>=0.32.2,<0.33"]
 
