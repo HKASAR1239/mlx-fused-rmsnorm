@@ -35,7 +35,7 @@ mx::array residual_rms_norm(
   }
 
   auto rows = x.size() / width;
-  if (rows > std::numeric_limits<int>::max() / 32) {
+  if (rows > std::numeric_limits<int>::max() / 256) {
     throw std::invalid_argument("too many rows");
   }
 
@@ -44,20 +44,34 @@ mx::array residual_rms_norm(
       {"x", "residual", "weight", "eps"},
       {"out"},
       R"metal(
-        uint row = thread_position_in_grid.x / 32;
-        uint lane = thread_position_in_grid.x % 32;
+        uint row = threadgroup_position_in_grid.x;
+        uint tid = thread_position_in_threadgroup.x;
+        uint lane = tid % 32;
+        uint group = tid / 32;
+        uint groups = threads_per_threadgroup.x / 32;
         uint width = x_shape[x_ndim - 1];
         float sum = 0.0f;
+        threadgroup float partials[8];
+        threadgroup float scale;
 
-        for (uint col = lane; col < width; col += 32) {
+        for (uint col = tid; col < width; col += threads_per_threadgroup.x) {
           uint index = row * width + col;
           T summed = x[index] + residual[index];
           float value = float(summed);
           sum += value * value;
         }
 
-        float scale = rsqrt(simd_sum(sum) / float(width) + eps);
-        for (uint col = lane; col < width; col += 32) {
+        float partial = simd_sum(sum);
+        if (lane == 0) partials[group] = partial;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        if (group == 0) {
+          float total = simd_sum(lane < groups ? partials[lane] : 0.0f);
+          if (lane == 0) scale = rsqrt(total / float(width) + eps);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        for (uint col = tid; col < width; col += threads_per_threadgroup.x) {
           uint index = row * width + col;
           T summed = x[index] + residual[index];
           float value = float(summed);
@@ -65,12 +79,13 @@ mx::array residual_rms_norm(
         }
       )metal");
 
+  int threads = width <= 256 ? 32 : 256;
   return kernel(
              {x, residual, weight, mx::array(eps)},
              {x.shape()},
              {x.dtype()},
-             {static_cast<int>(rows * 32), 1, 1},
-             {32, 1, 1},
+             {static_cast<int>(rows * threads), 1, 1},
+             {threads, 1, 1},
              {{"T", x.dtype()}},
              std::nullopt,
              false,

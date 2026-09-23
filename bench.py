@@ -31,7 +31,7 @@ def main():
     parser.add_argument("--iterations", type=int, default=100)
     args = parser.parse_args()
 
-    device = mx.metal.device_info().get("device_name", "Apple GPU")
+    device = mx.device_info(mx.gpu).get("device_name", "Apple GPU")
     print(f"MLX {mx.__version__} | {device} | {platform.platform()}", file=sys.stderr)
     print("rows,width,dtype,mlx_us,fused_us,speedup")
     for rows, width in [(1, 256), (1, 4096), (32, 1024), (128, 4096)]:
