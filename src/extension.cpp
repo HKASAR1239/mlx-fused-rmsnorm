@@ -51,12 +51,14 @@ mx::array residual_rms_norm(
         uint groups = threads_per_threadgroup.x / 32;
         uint width = x_shape[x_ndim - 1];
         float sum = 0.0f;
+        thread T cached[16];
         threadgroup float partials[8];
         threadgroup float scale;
 
-        for (uint col = tid; col < width; col += threads_per_threadgroup.x) {
+        for (uint i = 0, col = tid; col < width; ++i, col += threads_per_threadgroup.x) {
           uint index = row * width + col;
           T summed = x[index] + residual[index];
+          if (CACHE_ROW) cached[i] = summed;
           float value = float(summed);
           sum += value * value;
         }
@@ -77,9 +79,9 @@ mx::array residual_rms_norm(
           row_scale = scale;
         }
 
-        for (uint col = tid; col < width; col += threads_per_threadgroup.x) {
+        for (uint i = 0, col = tid; col < width; ++i, col += threads_per_threadgroup.x) {
           uint index = row * width + col;
-          T summed = x[index] + residual[index];
+          T summed = CACHE_ROW ? cached[i] : T(x[index] + residual[index]);
           float value = float(summed);
           out[index] = T(value * row_scale * float(weight[col]));
         }
@@ -92,7 +94,7 @@ mx::array residual_rms_norm(
              {x.dtype()},
              {static_cast<int>(rows * threads), 1, 1},
              {threads, 1, 1},
-             {{"T", x.dtype()}},
+             {{"T", x.dtype()}, {"CACHE_ROW", width == 4096}},
              std::nullopt,
              false,
              stream)
