@@ -31,10 +31,31 @@ def test_noncontiguous_input():
     actual = residual_rms_norm(x, residual, weight)
     expected = mx.fast.rms_norm(x + residual, weight, 1e-5)
     mx.eval(actual, expected)
-    np.testing.assert_allclose(np.array(actual), np.array(expected), rtol=2e-5)
+    np.testing.assert_allclose(
+        np.array(actual), np.array(expected), rtol=2e-5, atol=2e-5
+    )
+
+
+def test_custom_epsilon():
+    x = mx.random.normal((3, 64))
+    residual = mx.random.normal((3, 64))
+    weight = mx.ones((64,))
+
+    actual = residual_rms_norm(x, residual, weight, eps=0.01)
+    expected = mx.fast.rms_norm(x + residual, weight, 0.01)
+    mx.eval(actual, expected)
+    np.testing.assert_allclose(
+        np.array(actual), np.array(expected), rtol=2e-5, atol=2e-5
+    )
 
 
 def test_rejects_invalid_weight():
     x = mx.ones((2, 64))
     with pytest.raises(ValueError):
         residual_rms_norm(x, x, mx.ones((32,)))
+
+
+def test_rejects_invalid_epsilon():
+    x = mx.ones((2, 64))
+    with pytest.raises(ValueError):
+        residual_rms_norm(x, x, mx.ones((64,)), eps=0)

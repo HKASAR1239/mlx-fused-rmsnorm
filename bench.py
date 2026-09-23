@@ -1,9 +1,11 @@
 import argparse
 import platform
 import statistics
+import sys
 import time
 
 import mlx.core as mx
+import numpy as np
 
 from mlx_fused_rmsnorm import residual_rms_norm
 
@@ -30,7 +32,7 @@ def main():
     args = parser.parse_args()
 
     device = mx.metal.device_info().get("device_name", "Apple GPU")
-    print(f"MLX {mx.__version__} | {device} | {platform.platform()}")
+    print(f"MLX {mx.__version__} | {device} | {platform.platform()}", file=sys.stderr)
     print("rows,width,dtype,mlx_us,fused_us,speedup")
     for rows, width in [(1, 256), (1, 4096), (32, 1024), (128, 4096)]:
         for dtype in (mx.float32, mx.float16):
@@ -41,6 +43,13 @@ def main():
 
             baseline = lambda: mx.fast.rms_norm(x + residual, weight, 1e-5)
             fused = lambda: residual_rms_norm(x, residual, weight)
+            expected, actual = baseline(), fused()
+            mx.eval(expected, actual)
+            tolerance = 2e-2 if dtype == mx.float16 else 2e-5
+            np.testing.assert_allclose(
+                np.array(actual), np.array(expected),
+                rtol=tolerance, atol=tolerance,
+            )
             mlx_us = run(baseline, args.repeats, args.iterations)
             fused_us = run(fused, args.repeats, args.iterations)
             print(
