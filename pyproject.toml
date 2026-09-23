@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=70", "cmake>=3.27", "nanobind>=3.0,<4", "mlx>=0.32.2,<0.33"]
+requires = ["setuptools>=70", "cmake>=3.27", "nanobind==2.15.0", "mlx==0.32.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Fused residual addition and RMSNorm for MLX"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["mlx>=0.32.2,<0.33"]
+dependencies = ["mlx==0.32.2"]
 
 [project.optional-dependencies]
 dev = ["numpy>=2", "pytest>=8"]
