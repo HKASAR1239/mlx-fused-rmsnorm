@@ -61,21 +61,27 @@ mx::array residual_rms_norm(
           sum += value * value;
         }
 
-        float partial = simd_sum(sum);
-        if (lane == 0) partials[group] = partial;
-        threadgroup_barrier(mem_flags::mem_threadgroup);
+        float row_scale;
+        if (threads_per_threadgroup.x == 32) {
+          row_scale = rsqrt(simd_sum(sum) / float(width) + eps);
+        } else {
+          float partial = simd_sum(sum);
+          if (lane == 0) partials[group] = partial;
+          threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        if (group == 0) {
-          float total = simd_sum(lane < groups ? partials[lane] : 0.0f);
-          if (lane == 0) scale = rsqrt(total / float(width) + eps);
+          if (group == 0) {
+            float total = simd_sum(lane < groups ? partials[lane] : 0.0f);
+            if (lane == 0) scale = rsqrt(total / float(width) + eps);
+          }
+          threadgroup_barrier(mem_flags::mem_threadgroup);
+          row_scale = scale;
         }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
 
         for (uint col = tid; col < width; col += threads_per_threadgroup.x) {
           uint index = row * width + col;
           T summed = x[index] + residual[index];
           float value = float(summed);
-          out[index] = T(value * scale * float(weight[col]));
+          out[index] = T(value * row_scale * float(weight[col]));
         }
       )metal");
 
