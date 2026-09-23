@@ -34,6 +34,8 @@ Open the `.gputrace` files in Xcode's Metal debugger to inspect GPU kernel durat
 
 The default trace synchronizes each call. Add `--mode batch` to evaluate 20 independent inputs in one group; this keeps the GPU busier and makes per-dispatch comparisons more useful. The output name includes `batch-` so it does not replace the serial trace.
 
+See the [M4 Max Metal capture notes](benchmarks/metal-profile-m4-max.md) for the observed dispatch counts and the limitations of Xcode replay timings.
+
 On an Apple M4 Max with MLX 0.32.2, all 13 tests pass. The [initial synchronized benchmark](benchmarks/m4-max-mlx-0.32.2.csv) ranges from 0.90× to 1.20× against eager MLX. In the [controlled benchmark](benchmarks/m4-max-mlx-0.32.2-v2.csv), the 128 × 4096 float32 case takes 38.15 µs per call with eager MLX, 37.59 µs with compiled MLX, and 29.82 µs with this extension in batch mode (1.28× versus eager MLX). The float16 and bfloat16 cases at that shape reach 1.11× and 1.13×; smaller shapes are usually slower with the extension. Batch mode reduces the effect of per-call synchronization but still includes Python and scheduling overhead. GPU-only timing requires the Metal traces. MLX and nanobind are pinned to compatible versions because their C++ array bindings share an ABI.
 
 Based on the [MLX custom Metal kernel](https://ml-explore.github.io/mlx/build/html/dev/custom_metal_kernels.html) and [extension](https://ml-explore.github.io/mlx/build/html/dev/extensions.html) APIs.
