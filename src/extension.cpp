@@ -35,7 +35,8 @@ mx::array residual_rms_norm(
   }
 
   auto rows = x.size() / width;
-  if (rows > std::numeric_limits<int>::max() / 256) {
+  int threads = width <= 256 ? 32 : width == 4096 ? 1024 : 256;
+  if (rows > std::numeric_limits<int>::max() / threads) {
     throw std::invalid_argument("too many rows");
   }
 
@@ -51,8 +52,8 @@ mx::array residual_rms_norm(
         uint groups = threads_per_threadgroup.x / 32;
         uint width = x_shape[x_ndim - 1];
         float sum = 0.0f;
-        thread T cached[16];
-        threadgroup float partials[8];
+        thread T cached[4];
+        threadgroup float partials[32];
         threadgroup float scale;
 
         for (uint i = 0, col = tid; col < width; ++i, col += threads_per_threadgroup.x) {
@@ -87,7 +88,6 @@ mx::array residual_rms_norm(
         }
       )metal");
 
-  int threads = width <= 256 ? 32 : 256;
   return kernel(
              {x, residual, weight, mx::array(eps)},
              {x.shape()},
