@@ -35,7 +35,8 @@ def main():
     print(f"MLX {mx.__version__} | {device} | {platform.platform()}", file=sys.stderr)
     print("rows,width,dtype,mlx_us,fused_us,speedup")
     for rows, width in [(1, 256), (1, 4096), (32, 1024), (128, 4096)]:
-        for dtype in (mx.float32, mx.float16):
+        for name in ("float32", "float16", "bfloat16"):
+            dtype = getattr(mx, name)
             x = mx.random.normal((rows, width)).astype(dtype)
             residual = mx.random.normal((rows, width)).astype(dtype)
             weight = mx.random.normal((width,)).astype(dtype)
@@ -45,15 +46,16 @@ def main():
             fused = lambda: residual_rms_norm(x, residual, weight)
             expected, actual = baseline(), fused()
             mx.eval(expected, actual)
-            tolerance = 2e-2 if dtype == mx.float16 else 2e-5
+            tolerance = {"float32": 2e-5, "float16": 2e-2, "bfloat16": 3e-2}[name]
             np.testing.assert_allclose(
-                np.array(actual), np.array(expected),
+                np.array(actual.astype(mx.float32)),
+                np.array(expected.astype(mx.float32)),
                 rtol=tolerance, atol=tolerance,
             )
             mlx_us = run(baseline, args.repeats, args.iterations)
             fused_us = run(fused, args.repeats, args.iterations)
             print(
-                f"{rows},{width},{dtype},{mlx_us:.2f},{fused_us:.2f},"
+                f"{rows},{width},{name},{mlx_us:.2f},{fused_us:.2f},"
                 f"{mlx_us / fused_us:.2f}"
             )
 

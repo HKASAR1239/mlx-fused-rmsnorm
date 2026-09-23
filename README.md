@@ -11,7 +11,7 @@ python3.12 -m venv .venv
 .venv/bin/python bench.py > results.csv
 ```
 
-The kernel accepts float16 and float32 inputs, including noncontiguous arrays. The three inputs must have the same dtype; `weight` must match the final dimension of `x`. It does not implement gradients or batching transforms.
+The kernel accepts float16, bfloat16, and float32 inputs, including noncontiguous arrays. The three inputs must have the same dtype; `weight` must match the final dimension of `x`. It does not implement gradients or batching transforms.
 
 `bench.py` writes median time per call after warmup to CSV and prints the MLX version and GPU to stderr. A speedup is not assumed: the result depends on shape, dtype, and Apple Silicon generation.
 

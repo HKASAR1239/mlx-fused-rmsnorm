@@ -26,8 +26,9 @@ mx::array residual_rms_norm(
     throw std::invalid_argument("weight must have shape (x.shape[-1],)");
   }
   if (x.dtype() != residual.dtype() || x.dtype() != weight.dtype() ||
-      (x.dtype() != mx::float16 && x.dtype() != mx::float32)) {
-    throw std::invalid_argument("all inputs must share float16 or float32 dtype");
+      (x.dtype() != mx::float16 && x.dtype() != mx::bfloat16 &&
+       x.dtype() != mx::float32)) {
+    throw std::invalid_argument("all inputs must share float16, bfloat16 or float32 dtype");
   }
   if (!std::isfinite(eps) || eps <= 0.0f) {
     throw std::invalid_argument("eps must be positive and finite");
@@ -50,15 +51,17 @@ mx::array residual_rms_norm(
 
         for (uint col = lane; col < width; col += 32) {
           uint index = row * width + col;
-          float value = float(x[index] + residual[index]);
+          T summed = x[index] + residual[index];
+          float value = float(summed);
           sum += value * value;
         }
 
         float scale = rsqrt(simd_sum(sum) / float(width) + eps);
         for (uint col = lane; col < width; col += 32) {
           uint index = row * width + col;
-          float value = float(x[index] + residual[index]);
-          out[index] = value * scale * float(weight[col]);
+          T summed = x[index] + residual[index];
+          float value = float(summed);
+          out[index] = T(value * scale * float(weight[col]));
         }
       )metal");
 
@@ -68,7 +71,7 @@ mx::array residual_rms_norm(
              {x.dtype()},
              {static_cast<int>(rows * 32), 1, 1},
              {32, 1, 1},
-             {},
+             {{"T", x.dtype()}},
              std::nullopt,
              false,
              stream)

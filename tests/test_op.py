@@ -6,7 +6,7 @@ from mlx_fused_rmsnorm import residual_rms_norm
 
 
 @pytest.mark.parametrize("shape", [(1, 32), (7, 257), (2, 3, 1024)])
-@pytest.mark.parametrize("dtype", ["float32", "float16"])
+@pytest.mark.parametrize("dtype", ["float32", "float16", "bfloat16"])
 def test_matches_mlx(shape, dtype):
     kind = getattr(mx, dtype)
     x = mx.random.normal(shape).astype(kind)
@@ -17,9 +17,13 @@ def test_matches_mlx(shape, dtype):
     expected = mx.fast.rms_norm(x + residual, weight, 1e-5)
     mx.eval(actual, expected)
 
-    tolerance = 2e-2 if dtype == "float16" else 2e-5
+    assert actual.dtype == kind
+    tolerance = {"float32": 2e-5, "float16": 2e-2, "bfloat16": 3e-2}[dtype]
     np.testing.assert_allclose(
-        np.array(actual), np.array(expected), rtol=tolerance, atol=tolerance
+        np.array(actual.astype(mx.float32)),
+        np.array(expected.astype(mx.float32)),
+        rtol=tolerance,
+        atol=tolerance,
     )
 
 
