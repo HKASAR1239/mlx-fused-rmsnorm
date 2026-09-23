@@ -21,6 +21,17 @@ The kernel accepts float16, bfloat16, and float32 inputs, including noncontiguou
 
 `bench.py` writes median time per call after warmup to CSV and prints the MLX version and GPU to stderr. A speedup is not assumed: the result depends on shape, dtype, and Apple Silicon generation.
 
+For a more useful comparison, run `bench_v2.py`. It checks numerical agreement, compares eager MLX, `mx.compile` and the extension, and reports both synchronized calls (`serial`) and groups of 16 independent calls evaluated together (`batch`). It rotates measurement order and reports median absolute deviation (`mad_us`). Both modes include Python and MLX scheduling overhead; neither is a GPU-only kernel timing.
+
+```sh
+.venv/bin/python bench_v2.py > results-v2.csv
+MTL_CAPTURE_ENABLED=1 .venv/bin/python profile.py mlx
+MTL_CAPTURE_ENABLED=1 .venv/bin/python profile.py compiled
+MTL_CAPTURE_ENABLED=1 .venv/bin/python profile.py fused
+```
+
+Open the `.gputrace` files in Xcode's Metal debugger to inspect GPU kernel durations and dispatch counts. Profile the same shape and dtype for each variant (`--rows`, `--width`, `--dtype`); the defaults are 128 × 4096 float16. Trace files are local and excluded from Git.
+
 On an Apple M4 Max with MLX 0.32.2, all 13 tests pass. The [recorded benchmark](benchmarks/m4-max-mlx-0.32.2.csv) ranges from 0.90× to 1.20× against the MLX baseline. These are end-to-end Python call times, including dispatch and synchronization; most cases are near parity, so the small differences should not be read as kernel-only GPU speedups. MLX and nanobind are pinned to compatible versions because their C++ array bindings share an ABI.
 
 Based on the [MLX custom Metal kernel](https://ml-explore.github.io/mlx/build/html/dev/custom_metal_kernels.html) and [extension](https://ml-explore.github.io/mlx/build/html/dev/extensions.html) APIs.
