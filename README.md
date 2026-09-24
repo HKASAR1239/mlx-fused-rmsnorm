@@ -1,8 +1,8 @@
 # Fused residual RMSNorm for MLX
 
-An inference-only Metal kernel for `RMSNorm(x + residual, weight)`, exposed through a small C++/Python extension. Each row uses one threadgroup, with up to eight SIMD groups reducing in float32. The baseline is `mlx.core.fast.rms_norm(x + residual, weight, eps)`.
+An inference-only Metal kernel for `RMSNorm(x + residual, weight)`, exposed through a small C++/Python extension. Each row uses one threadgroup, with up to 32 SIMD groups reducing in float32. The baseline is `mlx.core.fast.rms_norm(x + residual, weight, eps)`.
 
-Requires an Apple Silicon Mac running macOS 15 or newer, Xcode with the Metal Toolchain, and Python 3.10 or newer. The commands below use Python 3.12.
+Requires an Apple Silicon Mac running macOS 15 or newer and Python 3.10 or newer. Xcode is needed only to inspect optional Metal captures. The commands below use Python 3.12.
 
 ```sh
 python3.12 -m venv .venv
@@ -36,6 +36,8 @@ The default trace synchronizes each call. Add `--mode batch` to evaluate 20 inde
 
 See the [M4 Max Metal capture notes](benchmarks/metal-profile-m4-max.md) for the observed dispatch counts and the limitations of Xcode replay timings.
 
-On an Apple M4 Max with MLX 0.32.2, all 13 tests pass. The [initial synchronized benchmark](benchmarks/m4-max-mlx-0.32.2.csv) ranges from 0.90× to 1.20× against eager MLX. In the [controlled benchmark](benchmarks/m4-max-mlx-0.32.2-v2.csv), the 128 × 4096 float32 case takes 38.15 µs per call with eager MLX, 37.59 µs with compiled MLX, and 29.82 µs with this extension in batch mode (1.28× versus eager MLX). The float16 and bfloat16 cases at that shape reach 1.11× and 1.13×; smaller shapes are usually slower with the extension. Batch mode reduces the effect of per-call synchronization but still includes Python and scheduling overhead. GPU-only timing requires the Metal traces. MLX and nanobind are pinned to compatible versions because their C++ array bindings share an ABI.
+On an Apple M4 Max with MLX 0.32.2, all 19 tests pass with this tuned kernel. It skips threadgroup barriers for single-SIMD rows and caches four residual sums per thread for width 4096. In the [tuned benchmark](benchmarks/m4-max-mlx-0.32.2-tuned.csv), the 128 × 4096 float32 case takes 36.52 µs per call with eager MLX, 35.57 µs with compiled MLX, and 27.27 µs with this extension in batch mode (1.34× versus eager MLX). Float16 and bfloat16 reach 1.14× and 1.09× at that shape; smaller shapes are usually slower.
+
+The [previous kernel's controlled benchmark](benchmarks/m4-max-mlx-0.32.2-v2.csv) measured 1.28× for 128 × 4096 float32. Those two runs were not interleaved, so their difference is not evidence that the tuning improved the earlier kernel. Both batch measurements include Python and scheduling overhead; GPU-only timing requires Metal profiling. MLX and nanobind are pinned to compatible versions because their C++ array bindings share an ABI.
 
 Based on the [MLX custom Metal kernel](https://ml-explore.github.io/mlx/build/html/dev/custom_metal_kernels.html) and [extension](https://ml-explore.github.io/mlx/build/html/dev/extensions.html) APIs.
