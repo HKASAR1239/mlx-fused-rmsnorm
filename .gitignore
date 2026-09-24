@@ -5,6 +5,8 @@ build/
 __pycache__/
 .pytest_cache/
 results.csv
+results-opt.csv
+comparison.csv
 results-v2.csv
 *.gputrace/
 .DS_Store
