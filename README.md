@@ -40,6 +40,12 @@ See the [M4 Max Metal capture notes](benchmarks/metal-profile-m4-max.md) for the
 
 On an Apple M4 Max with MLX 0.32.2, all 19 tests pass with this tuned kernel. It skips threadgroup barriers for single-SIMD rows and caches four residual sums per thread for width 4096. In the [tuned benchmark](benchmarks/m4-max-mlx-0.32.2-tuned.csv), the 128 × 4096 float32 case takes 36.52 µs per call with eager MLX, 35.57 µs with compiled MLX, and 27.27 µs with this extension in batch mode (1.34× versus eager MLX). Float16 and bfloat16 reach 1.14× and 1.09× at that shape; smaller shapes are usually slower.
 
-The [previous kernel's controlled benchmark](benchmarks/m4-max-mlx-0.32.2-v2.csv) measured 1.28× for 128 × 4096 float32. Those two runs were not interleaved, so their difference is not evidence that the tuning improved the earlier kernel. Both batch measurements include Python and scheduling overhead; GPU-only timing requires Metal profiling. MLX and nanobind are pinned to compatible versions because their C++ array bindings share an ABI.
+The [previous kernel's benchmark](benchmarks/m4-max-mlx-0.32.2-v2.csv) measured 1.28× for 128 × 4096 float32. Those two runs were not interleaved. For a direct comparison, `compare_checkouts.py` runs the same focused batch benchmark in separate Python processes, alternating base, tuned, tuned, base. Pass `--base` and `--tuned` if the checkouts are elsewhere; each needs its own installed `.venv`.
+
+```sh
+.venv/bin/python compare_checkouts.py --base ../mlx-fused-rmsnorm > comparison.csv
+```
+
+The [alternating M4 Max measurements](benchmarks/m4-max-mlx-0.32.2-abba.csv) used base commit `511a97b` and tuned commit `60fd8e8`. For 128 × 4096 float32, the two base runs measured 30.06 and 29.96 µs/call; the tuned runs measured 27.05 and 26.99 µs/call, about 10% less wall-clock time. Float16 and bfloat16 showed smaller reductions of about 3%. At 1 × 256, even the tuned kernel remained slower than eager MLX. These measurements include Python and scheduling overhead; they do not establish a GPU-only speedup. MLX and nanobind are pinned to compatible versions because their C++ array bindings share an ABI.
 
 Based on the [MLX custom Metal kernel](https://ml-explore.github.io/mlx/build/html/dev/custom_metal_kernels.html) and [extension](https://ml-explore.github.io/mlx/build/html/dev/extensions.html) APIs.

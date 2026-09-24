@@ -1,3 +1,4 @@
+import argparse
 import csv
 import io
 import subprocess
@@ -6,9 +7,13 @@ from pathlib import Path
 
 
 root = Path(__file__).resolve().parent
+parser = argparse.ArgumentParser()
+parser.add_argument("--base", type=Path, default=root.parent / "mlx-fused-rmsnorm")
+parser.add_argument("--tuned", type=Path, default=root)
+args = parser.parse_args()
 checkouts = {
-    "base": root.parent / "mlx-fused-rmsnorm",
-    "tuned": root,
+    "base": args.base.resolve(),
+    "tuned": args.tuned.resolve(),
 }
 order = ("base", "tuned", "tuned", "base")
 writer = None
