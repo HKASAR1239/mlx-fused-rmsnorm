@@ -23,6 +23,8 @@ The kernel accepts float16, bfloat16, and float32 inputs, including noncontiguou
 
 For a more useful comparison, run `bench_v2.py`. It checks numerical agreement, compares eager MLX, `mx.compile` and the extension, and reports both synchronized calls (`serial`) and groups of 16 independent calls evaluated together (`batch`). It rotates measurement order and reports median absolute deviation (`mad_us`). Both modes include Python and MLX scheduling overhead; neither is a GPU-only kernel timing.
 
+Use `--mode batch --case 128x4096 --dtype float32` to repeat one workload; `--case` and `--dtype` may be supplied more than once.
+
 ```sh
 .venv/bin/python bench_v2.py > results-v2.csv
 MTL_CAPTURE_ENABLED=1 .venv/bin/python profile.py mlx
