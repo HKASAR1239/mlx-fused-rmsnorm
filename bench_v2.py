@@ -31,16 +31,29 @@ def main():
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--iterations", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--case", action="append", metavar="ROWSxWIDTH")
+    parser.add_argument("--dtype", action="append", choices=("float32", "float16", "bfloat16"))
+    parser.add_argument("--mode", choices=("serial", "batch", "both"), default="both")
     args = parser.parse_args()
     if min(args.repeats, args.iterations, args.batch_size) < 1:
         parser.error("repeats, iterations and batch-size must be positive")
+    cases = []
+    for case in args.case or ("1x256", "1x4096", "32x1024", "128x4096"):
+        try:
+            rows, width = map(int, case.split("x"))
+        except ValueError:
+            parser.error(f"invalid case: {case}")
+        if min(rows, width) < 1:
+            parser.error(f"invalid case: {case}")
+        cases.append((rows, width))
 
     device = mx.device_info(mx.gpu).get("device_name", "Apple GPU")
     print(f"MLX {mx.__version__} | {device} | {platform.platform()}", file=sys.stderr)
+    mx.random.seed(0)
     print("mode,rows,width,dtype,variant,us_per_call,mad_us,speedup_vs_mlx")
     variants = {"mlx": mlx_norm, "compiled": mx.compile(mlx_norm), "fused": residual_rms_norm}
-    for rows, width in [(1, 256), (1, 4096), (32, 1024), (128, 4096)]:
-        for name in ("float32", "float16", "bfloat16"):
+    for rows, width in cases:
+        for name in args.dtype or ("float32", "float16", "bfloat16"):
             dtype = getattr(mx, name)
             inputs = [
                 (
@@ -63,7 +76,7 @@ def main():
                     atol=tolerance,
                 )
 
-            for mode in ("serial", "batch"):
+            for mode in (("serial", "batch") if args.mode == "both" else (args.mode,)):
                 for fn in variants.values():
                     for _ in range(5):
                         mx.eval(fn(*inputs[0]))

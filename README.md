@@ -2,7 +2,7 @@
 
 An inference-only Metal kernel for `RMSNorm(x + residual, weight)`, exposed through a small C++/Python extension. Each row uses one threadgroup, with up to eight SIMD groups reducing in float32. The baseline is `mlx.core.fast.rms_norm(x + residual, weight, eps)`.
 
-Requires an Apple Silicon Mac running macOS 15 or newer, Xcode with the Metal Toolchain, and Python 3.10 or newer. The commands below use Python 3.12.
+Requires an Apple Silicon Mac running macOS 15 or newer and Python 3.10 or newer. Xcode is needed only to inspect optional Metal captures. The commands below use Python 3.12.
 
 ```sh
 python3.12 -m venv .venv
@@ -22,6 +22,8 @@ The kernel accepts float16, bfloat16, and float32 inputs, including noncontiguou
 `bench.py` writes median time per call after warmup to CSV and prints the MLX version and GPU to stderr. A speedup is not assumed: the result depends on shape, dtype, and Apple Silicon generation.
 
 For a more useful comparison, run `bench_v2.py`. It checks numerical agreement, compares eager MLX, `mx.compile` and the extension, and reports both synchronized calls (`serial`) and groups of 16 independent calls evaluated together (`batch`). It rotates measurement order and reports median absolute deviation (`mad_us`). Both modes include Python and MLX scheduling overhead; neither is a GPU-only kernel timing.
+
+Use `--mode batch --case 128x4096 --dtype float32` to repeat one workload; `--case` and `--dtype` may be supplied more than once.
 
 ```sh
 .venv/bin/python bench_v2.py > results-v2.csv
