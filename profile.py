@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--width", type=int, default=4096)
     parser.add_argument("--dtype", choices=("float32", "float16", "bfloat16"), default="float16")
     parser.add_argument("--iterations", type=int, default=20)
+    parser.add_argument("--mode", choices=("serial", "batch"), default="serial")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not os.environ.get("MTL_CAPTURE_ENABLED"):
@@ -23,26 +24,35 @@ def main():
         parser.error("rows, width and iterations must be positive")
 
     dtype = getattr(mx, args.dtype)
-    x = mx.random.normal((args.rows, args.width)).astype(dtype)
-    residual = mx.random.normal((args.rows, args.width)).astype(dtype)
-    weight = mx.random.normal((args.width,)).astype(dtype)
-    mx.eval(x, residual, weight)
+    inputs = [
+        (
+            mx.random.normal((args.rows, args.width)).astype(dtype),
+            mx.random.normal((args.rows, args.width)).astype(dtype),
+            mx.random.normal((args.width,)).astype(dtype),
+        )
+        for _ in range(args.iterations if args.mode == "batch" else 1)
+    ]
+    mx.eval(*(array for item in inputs for array in item))
     fn = {
         "mlx": mlx_norm,
         "compiled": mx.compile(mlx_norm),
         "fused": residual_rms_norm,
     }[args.variant]
     for _ in range(10):
-        mx.eval(fn(x, residual, weight))
+        mx.eval(fn(*inputs[0]))
     mx.synchronize()
 
     output = args.output or Path(
-        f"{args.variant}-{args.rows}x{args.width}-{args.dtype}.gputrace"
+        f"{args.variant}-{'batch-' if args.mode == 'batch' else ''}"
+        f"{args.rows}x{args.width}-{args.dtype}.gputrace"
     )
     mx.metal.start_capture(str(output.resolve()))
     try:
-        for _ in range(args.iterations):
-            mx.eval(fn(x, residual, weight))
+        if args.mode == "batch":
+            mx.eval(*(fn(*item) for item in inputs))
+        else:
+            for _ in range(args.iterations):
+                mx.eval(fn(*inputs[0]))
         mx.synchronize()
     finally:
         mx.metal.stop_capture()

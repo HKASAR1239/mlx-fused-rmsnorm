@@ -6,4 +6,6 @@ __pycache__/
 .pytest_cache/
 results.csv
 results-opt.csv
+results-v2.csv
 *.gputrace/
+.DS_Store
