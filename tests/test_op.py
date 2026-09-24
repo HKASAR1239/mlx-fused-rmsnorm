@@ -5,7 +5,7 @@ mx = pytest.importorskip("mlx.core", exc_type=ImportError)
 from mlx_fused_rmsnorm import residual_rms_norm
 
 
-@pytest.mark.parametrize("shape", [(1, 32), (7, 257), (2, 3, 1024)])
+@pytest.mark.parametrize("shape", [(1, 32), (2, 256), (7, 257), (2, 3, 1024), (3, 4096)])
 @pytest.mark.parametrize("dtype", ["float32", "float16", "bfloat16"])
 def test_matches_mlx(shape, dtype):
     kind = getattr(mx, dtype)
